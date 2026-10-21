@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Blok Ustası</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Blok Ustası">
+<meta name="theme-color" content="#3a3dff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}
+html{height:100%;-webkit-text-size-adjust:100%}
+body{margin:0;font-size:14px;overscroll-behavior:none}
+[hidden]{display:none!important}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@500;700&display=swap">
+<style>
+/* Layout: tek ekranlık oyun — üstte skor, ortada 8x8 kuyu, altta 3 parçalık tepsi */
+:root{
+  --bg:#2a1a8c; --well:rgba(20,10,70,.55); --cell:rgba(255,255,255,.13); --fg:#ffffff; --muted:#e6dcff; --gold:#ffe14d;
+  --display:'Bungee',Impact,'Arial Black',sans-serif;
+  --body:'Rubik',system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--fg)}
+body{font-family:var(--body);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box;
+  background:radial-gradient(90% 55% at 15% 0%,#19b8ff 0%,transparent 60%),radial-gradient(90% 60% at 100% 100%,#ff3fa4 0%,transparent 60%),linear-gradient(180deg,#3a3dff 0%,#7a2cff 55%,#c02ccf 100%) var(--bg)}
+#app{height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:14px;padding-block:10px;box-sizing:border-box}
+header{width:100%;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.best{font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.best b{display:block;color:var(--gold);font-family:var(--display);font-size:18px;letter-spacing:0;font-weight:400}
+#score{font-family:var(--display);font-size:44px;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 4px 0 rgba(0,0,0,.35)}
+#restartBtn{justify-self:end;background:rgba(255,255,255,.08);border:0;color:var(--fg);width:40px;height:40px;border-radius:12px;font-size:20px;cursor:pointer}
+#restartBtn:focus-visible,.btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#board{position:relative;background:var(--well);border-radius:14px;padding:6px;box-sizing:border-box;display:grid;grid-template-columns:repeat(8,1fr);gap:3px;
+  box-shadow:0 0 0 2px rgba(255,255,255,.35),0 0 30px rgba(120,220,255,.35),0 18px 40px rgba(30,0,80,.45)}
+.cell{border-radius:5px;background:var(--cell)}
+.b{background:linear-gradient(160deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 45%),var(--c);box-shadow:inset 0 -4px 0 rgba(0,0,0,.22),inset 0 2px 0 rgba(255,255,255,.6)}
+.ghost{background:var(--c);opacity:.38}
+.hl{filter:brightness(1.25);box-shadow:inset 0 -4px 0 rgba(0,0,0,.2),inset 0 3px 0 rgba(255,255,255,.5),0 0 10px var(--c)}
+.pop{animation:pop .17s ease-in forwards}
+#fx{position:fixed;left:0;top:0;pointer-events:none;z-index:15}
+.shake{animation:shake .3s ease-out}
+@keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(calc(var(--s)*-1),var(--s))}40%{transform:translate(var(--s),calc(var(--s)*-1))}60%{transform:translate(calc(var(--s)*-.6),calc(var(--s)*.4))}80%{transform:translate(calc(var(--s)*.3),0)}}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.18);filter:brightness(1.8)}100%{transform:scale(0);opacity:0}}
+.land{animation:land .1s ease-out}
+@keyframes land{0%{transform:scale(.85)}100%{transform:scale(1)}}
+#tray{display:flex;justify-content:space-between;align-items:center}
+.slot{flex:1;height:100%;display:flex;align-items:center;justify-content:center;cursor:grab}
+.piece{display:grid;gap:2px;pointer-events:none}
+.piece .p{border-radius:4px}
+.slot.used .piece{opacity:0}
+.slot.nofit .piece{opacity:.35;filter:grayscale(.6)}
+.float{position:fixed;left:0;top:0;display:grid;gap:3px;pointer-events:none;z-index:20;will-change:transform}
+.float .p{border-radius:5px}
+.toast{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);font-family:var(--display);font-size:34px;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.4);pointer-events:none;animation:rise .9s ease-out forwards;white-space:nowrap;z-index:5}
+.toast small{display:block;text-align:center;font-size:18px;color:var(--gold)}
+@keyframes rise{0%{opacity:0;transform:translate(-50%,-30%) scale(.7)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}100%{opacity:0;transform:translate(-50%,-110%) scale(1)}}
+#over{position:fixed;inset:0;background:rgba(8,11,30,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:30;text-align:center;padding:16px}
+#over h2{font-family:var(--display);font-weight:400;font-size:30px;margin:0;color:#ff6b7a}
+#over .big{font-family:var(--display);font-size:56px;line-height:1}
+#over p{margin:0;color:var(--muted)}
+.btn{margin-top:14px;font-family:var(--display);font-size:20px;border:0;border-radius:14px;padding:14px 28px;background:var(--gold);color:#2a1d00;cursor:pointer;box-shadow:inset 0 -5px 0 rgba(0,0,0,.2)}
+.hint{color:var(--muted);font-size:13px;text-align:center}
+#start{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;
+  padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  background:radial-gradient(90% 55% at 15% 0%,#19b8ff 0%,transparent 60%),radial-gradient(90% 60% at 100% 100%,#ff3fa4 0%,transparent 60%),linear-gradient(180deg,#3a3dff 0%,#7a2cff 55%,#c02ccf 100%) var(--bg);
+  transition:opacity .3s,transform .3s}
+#start.leave{opacity:0;transform:scale(1.06);pointer-events:none}
+.logo{display:grid;grid-template-columns:repeat(3,58px);gap:7px}
+.logo i{height:58px;border-radius:12px;background:linear-gradient(160deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 45%),var(--c);
+  box-shadow:inset 0 -6px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.6),0 8px 18px rgba(30,0,80,.35);animation:drop .5s cubic-bezier(.3,1.5,.6,1) backwards}
+@keyframes drop{0%{transform:translateY(-60px) scale(.6);opacity:0}100%{transform:none;opacity:1}}
+.gtitle{font-family:var(--display);font-size:clamp(40px,13vw,64px);line-height:.95;margin:0;letter-spacing:.01em;text-shadow:0 5px 0 rgba(40,0,110,.45)}
+.gtitle span{display:block;color:var(--gold)}
+.tag{margin:0;color:var(--muted);font-size:15px;max-width:30ch}
+.sbest{font-size:13px;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.sbest b{display:block;font-family:var(--display);font-weight:400;font-size:28px;color:var(--gold);letter-spacing:0}
+#playBtn{margin-top:0;font-size:24px;padding:16px 56px;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.pop,.land,.toast{animation-duration:.01s}}
+</style>
+
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="best">EN İYİ<b id="best">0</b></div>
+    <div id="score">0</div>
+    <button id="restartBtn" aria-label="Yeniden başla" title="Yeniden başla">↻</button>
+  </header>
+  <div id="board"></div>
+  <div id="tray"></div>
+  <div class="hint" id="hint">Parçaları sürükleyip ızgaraya bırak. Dolan satır ve sütunlar patlar.</div>
+</div>
+<div id="over" hidden>
+  <h2>Yer kalmadı!</h2>
+  <p>Skorun</p>
+  <div class="big" id="finalScore">0</div>
+  <p id="finalBest"></p>
+  <button class="btn" id="againBtn">Tekrar Oyna</button>
+</div>
+<div id="start">
+  <div class="logo" aria-hidden="true">
+    <i style="--c:#ff2e63;animation-delay:.05s"></i><i style="--c:#ff2e63;animation-delay:.12s"></i><i style="--c:#ffe600;animation-delay:.19s"></i>
+    <i style="--c:#00e5ff;animation-delay:.26s"></i><i style="--c:#2cf27a;animation-delay:.33s"></i><i style="--c:#ffe600;animation-delay:.40s"></i>
+    <i style="--c:#00e5ff;animation-delay:.47s"></i><i style="--c:#2cf27a;animation-delay:.54s"></i><i style="--c:#ff8a00;animation-delay:.61s"></i>
+  </div>
+  <h1 class="gtitle">BLOK<span>USTASI</span></h1>
+  <p class="tag">Parçaları yerleştir, satırları patlat, komboları zincirle.</p>
+  <div class="sbest">EN İYİ SKOR<b id="startBest">0</b></div>
+  <button class="btn" id="playBtn">OYNA</button>
+</div>
+
+<script>
+(()=>{
+const N=8, GAP=3, PAD=6;
+const COLORS=['#ff2e63','#ff8a00','#ffe600','#2cf27a','#00e5ff','#2f7bff','#c74bff','#ff3fd8'];
+const RAW=[
+ ['X'],['XX'],['X','X'],['XXX'],['X','X','X'],['XXXX'],['X','X','X','X'],['XXXXX'],['X','X','X','X','X'],
+ ['XX','XX'],['XXX','XXX','XXX'],['XXX','XXX'],['XX','XX','XX'],
+ ['X.','XX'],['.X','XX'],['XX','X.'],['XX','.X'],
+ ['X..','X..','XXX'],['..X','..X','XXX'],['XXX','X..','X..'],['XXX','..X','..X'],
+ ['XXX','.X.'],['.X.','XXX'],['X.','XX','X.'],['.X','XX','.X'],
+ ['XX.','.XX'],['.XX','XX.'],['X.','XX','.X'],['.X','XX','X.'],
+ ['X..','XXX'],['..X','XXX'],['XXX','X..'],['XXX','..X'],
+ ['X.','X.','XX'],['.X','.X','XX'],['XX','X.','X.'],['XX','.X','.X']
+];
+const SHAPES=RAW.map(rows=>{const cells=[];rows.forEach((r,y)=>[...r].forEach((ch,x)=>{if(ch==='X')cells.push([y,x])}));return{cells,h:rows.length,w:rows[0].length}});
+
+const $=id=>document.getElementById(id);
+const app=$('app'),boardEl=$('board'),trayEl=$('tray'),scoreEl=$('score'),bestEl=$('best'),overEl=$('over');
+let grid,tray,score,best=0,combo,miss,cell=36,step=39,popping={},drag=null,busy=false;
+try{best=+localStorage.getItem('blok-ustasi-best')||0}catch(e){}
+
+const cellsEl=[];
+for(let i=0;i<N*N;i++){const d=document.createElement('div');d.className='cell';boardEl.appendChild(d);cellsEl.push(d)}
+const slots=[];
+for(let i=0;i<3;i++){const s=document.createElement('div');s.className='slot';s.dataset.i=i;trayEl.appendChild(s);slots.push(s);s.addEventListener('pointerdown',startDrag)}
+
+function canPlace(sh,r,c,g=grid){for(const[dy,dx]of sh.cells){const y=r+dy,x=c+dx;if(y<0||x<0||y>=N||x>=N||g[y*N+x])return false}return true}
+function fits(sh){for(let r=0;r<=N-sh.h;r++)for(let c=0;c<=N-sh.w;c++)if(canPlace(sh,r,c))return true;return false}
+function fullLines(g){const out=new Set(),rows=[],cols=[];
+  for(let r=0;r<N;r++){let f=true;for(let c=0;c<N;c++)if(!g[r*N+c]){f=false;break}if(f){rows.push(r);for(let c=0;c<N;c++)out.add(r*N+c)}}
+  for(let c=0;c<N;c++){let f=true;for(let r=0;r<N;r++)if(!g[r*N+c]){f=false;break}if(f){cols.push(c);for(let r=0;r<N;r++)out.add(r*N+c)}}
+  return{cells:out,count:rows.length+cols.length,rows,cols}}
+
+// --- Patlama efekti: tek canvas, sadece efekt varken çalışır ---
+const fx=document.createElement('canvas');fx.id='fx';document.body.appendChild(fx);
+const ctx=fx.getContext('2d');let parts=[],flashes=[],rings=[],running=false,last=0,dpr=1;
+function sizeFx(){dpr=Math.min(2,window.devicePixelRatio||1);fx.width=innerWidth*dpr;fx.height=innerHeight*dpr;fx.style.width=innerWidth+'px';fx.style.height=innerHeight+'px'}
+function burst(cells,rows,cols,colors){
+  const br=boardEl.getBoundingClientRect(),ox=br.left+PAD,oy=br.top+PAD,per=cells.size>24?4:7;
+  cells.forEach(k=>{const r=k/N|0,c=k%N,cx=ox+c*step+cell/2,cy=oy+r*step+cell/2;
+    for(let j=0;j<per;j++){const a=Math.random()*6.283,s=2+Math.random()*7;
+      parts.push({x:cx,y:cy,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,sz:cell*(.14+Math.random()*.22),life:1,dec:.022+Math.random()*.02,col:colors[k],rot:Math.random()*6,vr:(Math.random()-.5)*.5})}});
+  rows.forEach(r=>{flashes.push({x:ox-4,y:oy+r*step-3,w:N*step+5,h:cell+6,life:1});rings.push({x:br.left+br.width/2,y:oy+r*step+cell/2,r:cell*.5,life:1})});
+  cols.forEach(c=>{flashes.push({x:ox+c*step-3,y:oy-4,w:cell+6,h:N*step+5,life:1});rings.push({x:ox+c*step+cell/2,y:br.top+br.height/2,r:cell*.5,life:1})});
+  if(!running){running=true;last=0;requestAnimationFrame(tick)}
+}
+function tick(t){
+  const dt=last?Math.min(2.5,(t-last)/16.67):1;last=t;
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,innerWidth,innerHeight);
+  ctx.fillStyle='#fff';
+  for(const f of flashes){ctx.globalAlpha=Math.max(0,f.life)*.85;ctx.fillRect(f.x,f.y,f.w,f.h);f.life-=.09*dt}
+  ctx.lineWidth=4;
+  for(const g of rings){ctx.globalAlpha=Math.max(0,g.life)*.7;ctx.strokeStyle='#fff';ctx.beginPath();ctx.arc(g.x,g.y,g.r,0,6.283);ctx.stroke();g.r+=9*dt;g.life-=.05*dt}
+  for(const p of parts){p.vy+=.38*dt;p.vx*=.985;p.x+=p.vx*dt;p.y+=p.vy*dt;p.rot+=p.vr*dt;p.life-=p.dec*dt;
+    ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.col;const s=p.sz*(.4+p.life*.6);
+    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.fillRect(-s/2,-s/2,s,s);ctx.restore()}
+  ctx.globalAlpha=1;
+  flashes=flashes.filter(f=>f.life>0);rings=rings.filter(g=>g.life>0);parts=parts.filter(p=>p.life>0&&p.y<innerHeight+40);
+  if(parts.length||flashes.length||rings.length)requestAnimationFrame(tick);
+  else{running=false;ctx.clearRect(0,0,innerWidth,innerHeight)}
+}
+function shake(lines){
+  boardEl.style.setProperty('--s',(2+lines*2)+'px');
+  boardEl.classList.remove('shake');void boardEl.offsetWidth;boardEl.classList.add('shake');
+  try{navigator.vibrate&&navigator.vibrate(lines>1?[30,30,40]:25)}catch(e){}
+}
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+// Akıllı parça üretimi: sığan ve satır tamamlayan şekiller öne çıkar, küçükler daha sık gelir
+SHAPES.forEach(s=>{const n=s.cells.length;s.wt=n<=2?3:n<=4?2.5:n<=5?1.4:.7});
+function bestClear(sh,g){let best=-1;
+  for(let r=0;r<=N-sh.h;r++)for(let c=0;c<=N-sh.w;c++){if(!canPlace(sh,r,c,g))continue;
+    const t=g.slice();for(const[dy,dx]of sh.cells)t[(r+dy)*N+c+dx]=1;
+    const n=fullLines(t).count;if(n>best)best=n}
+  return best}
+function pickW(list,wf){let tot=0;list.forEach(x=>tot+=wf(x));let v=Math.random()*tot;for(const x of list){v-=wf(x);if(v<=0)return x}return list[list.length-1]}
+// Uyum puanı: parça boşluğa ne kadar oturuyor (kenar/blok teması) + kaç satır/sütun tamamlıyor
+function fitScore(sh,g){let best=null;
+  for(let r=0;r<=N-sh.h;r++)for(let c=0;c<=N-sh.w;c++){if(!canPlace(sh,r,c,g))continue;
+    const own=new Set(sh.cells.map(([dy,dx])=>(r+dy)*N+c+dx));let touch=0,sides=0;
+    for(const k of own){const y=k/N|0,x=k%N;
+      for(const[ny,nx]of[[y-1,x],[y+1,x],[y,x-1],[y,x+1]]){const nk=ny*N+nx;if(own.has(nk))continue;sides++;
+        if(ny<0||nx<0||ny>=N||nx>=N||g[nk])touch++}}
+    const t=g.slice();own.forEach(k=>t[k]=1);const lines=fullLines(t);
+    const s=lines.count*4+(touch/sides)*3+sh.cells.length*.12;
+    if(!best||s>best.s)best={s,t,lines}}
+  return best}
+function simPlace(g,b){b.lines.cells.forEach(k=>b.t[k]=0);for(let i=0;i<N*N;i++)g[i]=b.t[i]}
+
+function refill(){
+  const g0=grid.map(v=>v?1:0),g=g0.slice(),t=[];
+  // 2 uyumlu parça: tahtadaki boşluklara oturan, satır tamamlayan şekiller
+  for(let k=0;k<2;k++){
+    const ev=[];for(const sh of SHAPES){if(t.some(x=>x.sh===sh)||!fits(sh))continue;const b=fitScore(sh,g);if(b)ev.push({sh,b})}
+    if(!ev.length)break;
+    ev.sort((a,b)=>b.b.s-a.b.s);
+    const o=pickW(ev.slice(0,5),x=>x.b.s*x.b.s);
+    t.push({sh:o.sh,color:rnd(COLORS)});simPlace(g,o.b)}
+  // 1 uyumsuz parça: tamamen rastgele
+  while(t.length<3)t.push({sh:pickW(SHAPES,x=>x.wt),color:rnd(COLORS)});
+  // uyumsuz parçanın yeri her seferinde değişsin
+  for(let i=t.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[t[i],t[j]]=[t[j],t[i]]}
+  tray=t;renderTray();
+}
+
+function paint(prev){
+  for(let i=0;i<N*N;i++){const d=cellsEl[i];let cls='cell',col='';
+    if(popping[i]){cls='cell b pop';col=popping[i]}
+    else if(prev&&prev.lines.has(i)){cls='cell b hl';col=prev.color}
+    else if(grid[i]){cls='cell b';col=grid[i]}
+    else if(prev&&prev.cells.has(i)){cls='cell ghost';col=prev.color}
+    if(d._cls!==cls){d.className=cls;d._cls=cls}
+    if(d._col!==col){d.style.setProperty('--c',col);d._col=col}}
+}
+
+function pieceEl(p,size,gap,cls){
+  const el=document.createElement('div');el.className=cls;
+  el.style.gridTemplateColumns=`repeat(${p.sh.w},${size}px)`;el.style.gridTemplateRows=`repeat(${p.sh.h},${size}px)`;el.style.gap=gap+'px';
+  const set=new Set(p.sh.cells.map(([y,x])=>y+','+x));
+  for(let y=0;y<p.sh.h;y++)for(let x=0;x<p.sh.w;x++){const b=document.createElement('div');if(set.has(y+','+x)){b.className='p b';b.style.setProperty('--c',p.color)}el.appendChild(b)}
+  return el}
+
+function renderTray(){
+  const slotW=trayEl.clientWidth/3, slotH=trayEl.clientHeight;
+  const mini=Math.max(10,Math.min(cell*0.52,(slotW-12)/5.4,(slotH-8)/5.4));
+  slots.forEach((s,i)=>{s.innerHTML='';s.className='slot';const p=tray&&tray[i];
+    if(!p){s.classList.add('used');return}
+    s.appendChild(pieceEl(p,mini,2,'piece'));if(!fits(p.sh))s.classList.add('nofit')})
+}
+
+function layout(){
+  const W=app.clientWidth,H=app.clientHeight,hh=app.querySelector('header').offsetHeight+$('hint').offsetHeight;
+  const size=Math.floor(Math.min(W,(H-hh-50)/1.4,480));
+  boardEl.style.width=boardEl.style.height=size+'px';
+  cell=(size-PAD*2-GAP*(N-1))/N;step=cell+GAP;
+  trayEl.style.width=size+'px';trayEl.style.height=Math.floor(size*0.36)+'px';
+  renderTray();
+}
+
+function startDrag(e){
+  if(busy||drag)return;const i=+e.currentTarget.dataset.i,p=tray[i];if(!p)return;
+  e.preventDefault();
+  const el=pieceEl(p,cell,GAP,'float');document.body.appendChild(el);
+  const fw=p.sh.w*cell+(p.sh.w-1)*GAP,fh=p.sh.h*cell+(p.sh.h-1)*GAP;
+  boardEl.classList.remove('shake');
+  drag={i,p,el,fw,fh,lift:Math.max(46,cell*1.15),target:null,id:e.pointerId,br:boardEl.getBoundingClientRect(),x:e.clientX,y:e.clientY,raf:0};
+  slots[i].classList.add('used');
+  applyMove();
+  window.addEventListener('pointermove',moveDrag,{passive:true});window.addEventListener('pointerup',endDrag);window.addEventListener('pointercancel',endDrag);
+}
+function moveDrag(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  drag.x=e.clientX;drag.y=e.clientY;
+  if(!drag.raf)drag.raf=requestAnimationFrame(applyMove);
+}
+function applyMove(){
+  if(!drag)return;drag.raf=0;
+  const fx=drag.x-drag.fw/2,fy=drag.y-drag.fh-drag.lift,br=drag.br;
+  drag.el.style.transform=`translate3d(${fx}px,${fy}px,0)`;
+  // Toleranslı yakalama: tam hizada değilse en yakın uygun yere oturt
+  const fc=(fx-br.left-PAD)/step,fr=(fy-br.top-PAD)/step,rc=Math.round(fc),rr=Math.round(fr);
+  let r=0,c=0,bd=1.3;
+  for(let y=rr-1;y<=rr+1;y++)for(let x=rc-1;x<=rc+1;x++){const d=(y-fr)**2+(x-fc)**2;if(d<bd&&canPlace(drag.p.sh,y,x)){bd=d;r=y;c=x}}
+  if(bd<1.3){
+    if(!drag.target||drag.target.r!==r||drag.target.c!==c){
+      drag.target={r,c};const g=grid.slice(),cs=new Set();
+      for(const[dy,dx]of drag.p.sh.cells){const k=(r+dy)*N+c+dx;g[k]=1;cs.add(k)}
+      paint({cells:cs,lines:fullLines(g).cells,color:drag.p.color})}
+  }else if(drag.target){drag.target=null;paint()}
+}
+function endDrag(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  window.removeEventListener('pointermove',moveDrag);window.removeEventListener('pointerup',endDrag);window.removeEventListener('pointercancel',endDrag);
+  if(drag.raf)cancelAnimationFrame(drag.raf);
+  drag.x=e.clientX;drag.y=e.clientY;applyMove();
+  const d=drag;drag=null;d.el.remove();
+  if(d.target)place(d.i,d.p,d.target.r,d.target.c);else{slots[d.i].classList.remove('used');paint()}
+}
+
+function place(i,p,r,c){
+  const placed=[];
+  for(const[dy,dx]of p.sh.cells){const k=(r+dy)*N+c+dx;grid[k]=p.color;placed.push(k)}
+  tray[i]=null;
+  const {cells,count,rows,cols}=fullLines(grid);
+  let gain=p.sh.cells.length*2,clean=false;
+  if(count){combo++;miss=0;gain+=count*(count+1)*15*combo;
+    const colors={};
+    cells.forEach(k=>{colors[k]=popping[k]=grid[k];grid[k]=null});
+    if(grid.every(v=>!v)){clean=true;gain+=500}
+    setTimeout(()=>{cells.forEach(k=>delete popping[k]);paint()},170);
+    burst(cells,rows,cols,colors);shake(count);
+    toast(count,gain,clean);
+  }else{miss++;if(miss>=4)combo=0}
+  countTo(score,score+gain);score+=gain;
+  if(score>best){best=score;bestEl.textContent=best;try{localStorage.setItem('blok-ustasi-best',best)}catch(e){}}
+  paint();
+  placed.forEach(k=>{if(!cells.has(k)){const d=cellsEl[k];d.classList.add('land');setTimeout(()=>d.classList.remove('land'),200)}});
+  if(tray.every(x=>!x))refill();else renderTray();
+  if(!tray.some(x=>x&&fits(x.sh))){busy=true;setTimeout(gameOver,700)}
+}
+
+let cAnim=0;
+function countTo(a,b){cancelAnimationFrame(cAnim);const t0=performance.now(),D=Math.min(450,120+(b-a)*2);
+  const f=t=>{const k=Math.min(1,(t-t0)/D);scoreEl.textContent=Math.round(a+(b-a)*(1-(1-k)**3));if(k<1)cAnim=requestAnimationFrame(f)};cAnim=requestAnimationFrame(f)}
+function toast(lines,gain,clean){
+  const t=document.createElement('div');t.className='toast';
+  const word=clean?'Tahta Temiz! +500':lines>=3?'Harika!':lines===2?'Süper!':'';
+  t.innerHTML=`+${gain}`+(word?`<small>${word}</small>`:'')+(combo>1?`<small>Kombo x${combo}</small>`:'');
+  boardEl.appendChild(t);setTimeout(()=>t.remove(),950);
+}
+
+function gameOver(){
+  $('finalScore').textContent=score;
+  $('finalBest').textContent=score>=best&&score>0?'Yeni rekor!':'En iyi: '+best;
+  overEl.hidden=false;$('againBtn').focus();
+}
+
+function reset(){
+  cancelAnimationFrame(cAnim);grid=Array(N*N).fill(null);score=0;combo=0;miss=0;popping={};busy=false;
+  scoreEl.textContent='0';bestEl.textContent=best;overEl.hidden=true;
+  // Başlangıçta birkaç blokla canlı bir tahta
+  const seed=[[7,0],[7,1],[7,2],[7,4],[7,5],[7,6],[7,7],[6,0],[6,1],[6,6],[6,7],[5,7]];
+  seed.forEach(([r,c],j)=>grid[r*N+c]=COLORS[(j>>1)%COLORS.length]);
+  paint();refill();
+}
+
+$('startBest').textContent=best;
+$('playBtn').addEventListener('click',()=>{const s=$('start');s.classList.add('leave');setTimeout(()=>s.hidden=true,300)});
+$('restartBtn').addEventListener('click',reset);
+$('againBtn').addEventListener('click',reset);
+window.addEventListener('resize',()=>{layout();sizeFx()});
+sizeFx();
+reset();layout();
+if(document.fonts)document.fonts.ready.then(layout);
+})();
+</script>
+
+<script>
+if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+</script>
+</body>
+</html>
